@@ -26,8 +26,15 @@ class _IOSLauncherState extends State<IOSLauncher> {
     _loadApps();
   }
 
+  // యాప్స్ మరియు ఐకాన్స్‌ను లోడ్ చేసే ఫంక్షన్
   Future<void> _loadApps() async {
-    List<AppInfo> installedApps = await InstalledApps.getInstalledApps();
+    // false = సిస్టమ్ యాప్స్ కూడా కావాలి
+    // true = యాప్ ఐకాన్స్ కూడా కచ్చితంగా కావాలి
+    List<AppInfo> installedApps = await InstalledApps.getInstalledApps(false, true);
+    
+    // ఆల్ఫాబెటికల్ ఆర్డర్‌లో సార్ట్ చేయడం
+    installedApps.sort((a, b) => (a.name ?? "").compareTo(b.name ?? ""));
+
     setState(() {
       apps = installedApps;
     });
@@ -36,6 +43,7 @@ class _IOSLauncherState extends State<IOSLauncher> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black, // వాల్‌పేపర్ లోడ్ అయ్యేలోపు బ్లాక్ స్క్రీన్
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -47,68 +55,80 @@ class _IOSLauncherState extends State<IOSLauncher> {
         ),
         child: Column(
           children: [
-            const SizedBox(height: 60),
+            const SizedBox(height: 55), // స్టేటస్ బార్ స్పేస్
             Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 25,
-                  crossAxisSpacing: 20,
-                  childAspectRatio: 0.8,
-                ),
-                itemCount: apps.length,
-                itemBuilder: (context, index) {
-                  AppInfo app = apps[index];
-                  return GestureDetector(
-                    onTap: () => InstalledApps.startApp(app.packageName!),
-                    child: Column(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: app.icon != null 
-                              ? Image.memory(app.icon!, width: 60, height: 60)
-                              : const Icon(Icons.apps, size: 60, color: Colors.white),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          app.name ?? "",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            shadows: [Shadow(blurRadius: 4, color: Colors.black)],
-                          ),
-                        ),
-                      ],
+              child: apps.isEmpty 
+                ? const Center(child: CircularProgressIndicator(color: Colors.white)) // యాప్స్ లోడ్ అయ్యేలోపు యానిమేషన్
+                : GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 20,
+                      crossAxisSpacing: 15,
+                      childAspectRatio: 0.75,
                     ),
-                  );
-                },
-              ),
+                    itemCount: apps.length,
+                    itemBuilder: (context, index) {
+                      AppInfo app = apps[index];
+                      return GestureDetector(
+                        onTap: () => InstalledApps.startApp(app.packageName!),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            // ఐకాన్ (Border Radius తో)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: app.icon != null 
+                                  ? Image.memory(app.icon!, width: 55, height: 55, fit: BoxFit.cover)
+                                  : Container(
+                                      width: 55, height: 55, color: Colors.grey.withOpacity(0.5),
+                                      child: const Icon(Icons.apps, color: Colors.white),
+                                    ),
+                            ),
+                            const SizedBox(height: 5),
+                            // యాప్ పేరు
+                            Text(
+                              app.name ?? "",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                shadows: [
+                                  Shadow(blurRadius: 3, color: Colors.black87, offset: Offset(0, 1)) // టెక్స్ట్ క్లియర్ గా కనిపించడానికి షాడో
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
             ),
-            _buildDock(),
+            _buildDock(), // కింద ఉండే డాక్
           ],
         ),
       ),
     );
   }
 
+  // iOS గ్లాస్ డాక్ డిజైన్
   Widget _buildDock() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 30),
+      padding: const EdgeInsets.only(bottom: 25, left: 15, right: 15),
       child: GlassmorphicContainer(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: 90,
-        borderRadius: 30,
+        width: double.infinity,
+        height: 85,
+        borderRadius: 25,
         blur: 15,
         alignment: Alignment.center,
         border: 1,
         linearGradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.white.withOpacity(0.2), Colors.white.withOpacity(0.05)],
+          colors: [Colors.white.withOpacity(0.25), Colors.white.withOpacity(0.05)],
         ),
         borderGradient: LinearGradient(
           colors: [Colors.white.withOpacity(0.5), Colors.white.withOpacity(0.2)],
@@ -118,7 +138,7 @@ class _IOSLauncherState extends State<IOSLauncher> {
           children: [
             _dockIcon(Icons.phone, Colors.green),
             _dockIcon(Icons.message, Colors.blue),
-            _dockIcon(Icons.camera_alt, Colors.grey),
+            _dockIcon(Icons.camera_alt, Colors.grey.shade300, iconColor: Colors.black87),
             _dockIcon(Icons.language, Colors.blueAccent),
           ],
         ),
@@ -126,12 +146,12 @@ class _IOSLauncherState extends State<IOSLauncher> {
     );
   }
 
-  Widget _dockIcon(IconData icon, Color color) {
+  Widget _dockIcon(IconData icon, Color bgColor, {Color iconColor = Colors.white}) {
     return Container(
-      width: 55,
-      height: 55,
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
-      child: Icon(icon, color: Colors.white, size: 30),
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+      child: Icon(icon, color: iconColor, size: 28),
     );
   }
 }
