@@ -26,7 +26,7 @@ dependencies:
   
   # Advanced Video Features (New for your requests)
   auto_orientation: ^3.0.0  # Professional Orientation switching
-  flutter_video_info: ^2.0.0 # Subtitle & Format info (professional standard)
+  flutter_video_info: 1.3.3 # Subtitle & Format info (professional standard)
 
 dev_dependencies:
   flutter_test:
