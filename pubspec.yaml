@@ -10,9 +10,13 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.6
+  
+  # Media Kit Packages (Updated Versions)
   media_kit: ^1.1.11
   media_kit_video: ^1.2.4
-  media_kit_libs_video: ^1.4.0
+  media_kit_libs_video: ^1.0.7  # Downgraded to the stable version to fix the CI error
+  
+  # Utilities
   permission_handler: ^11.3.1
   path: ^1.9.0
   device_info_plus: ^10.1.0
