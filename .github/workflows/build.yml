@@ -1,12 +1,11 @@
 name: Build Flutter iOS Launcher
 
-# Node 24 ఎర్రర్ రాకుండా ఉండటానికి
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -29,6 +28,12 @@ jobs:
           flutter-version: '3.19.0'
           channel: 'stable'
 
+      # ఇక్కడే అసలైన మ్యాజిక్ జరుగుతుంది (పాత ఆండ్రాయిడ్ ఫోల్డర్ డిలీట్ చేసి కొత్తది క్రియేట్ చేస్తుంది)
+      - name: Recreate Android Folder (V2 Embedding Fix)
+        run: |
+          rm -rf android
+          flutter create --platforms android .
+          
       - name: Install dependencies
         run: flutter pub get
 
