@@ -5,35 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import 'liquid_glass.dart'; // LiquidGlassButton + LiquidGlassPanel
+import 'liquid_glass.dart';
 
 // ─────────────────────────────────────────
-//  Custom iOS Slider
-// ─────────────────────────────────────────
-class _IosSlider extends StatelessWidget {
-  final double value;
-  final ValueChanged<double> onChanged;
-  const _IosSlider({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return SliderTheme(
-      data: SliderTheme.of(context).copyWith(
-        trackHeight: 3.5,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-        activeTrackColor: Colors.white,
-        inactiveTrackColor: Colors.white24,
-        thumbColor: Colors.white,
-        overlayColor: Colors.white12,
-      ),
-      child: Slider(value: value, onChanged: onChanged),
-    );
-  }
-}
-
-// ─────────────────────────────────────────
-//  Seek Indicator (+10s / -10s)
+//  Seek Indicator
 // ─────────────────────────────────────────
 class _SeekIndicator extends StatelessWidget {
   final bool forward;
@@ -42,7 +17,7 @@ class _SeekIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xBB000000),
         borderRadius: BorderRadius.circular(40),
@@ -57,14 +32,14 @@ class _SeekIndicator extends StatelessWidget {
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 13)),
-                const SizedBox(width: 6),
+                const SizedBox(width: 5),
                 const Icon(CupertinoIcons.forward_fill,
-                    color: Colors.white, size: 16),
+                    color: Colors.white, size: 15),
               ]
             : [
                 const Icon(CupertinoIcons.backward_fill,
-                    color: Colors.white, size: 16),
-                const SizedBox(width: 6),
+                    color: Colors.white, size: 15),
+                const SizedBox(width: 5),
                 const Text("10s",
                     style: TextStyle(
                         color: Colors.white,
@@ -107,8 +82,12 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations(
-        [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    // Support both landscape and portrait
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.portraitUp,
+    ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     _controlsAnim = AnimationController(
@@ -198,19 +177,24 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
             .clamp(0.0, 1.0)
         : 0.0;
 
+    // Remaining duration (positive, like original UI)
+    final Duration remaining = totalDuration > currentPosition
+        ? totalDuration - currentPosition
+        : Duration.zero;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── 1. Video ──────────────────────────────────────
+          // ── 1. Video ──────────────────────────────────
           InteractiveViewer(
             minScale: 1.0,
             maxScale: 3.0,
             child: Video(controller: controller, controls: NoVideoControls),
           ),
 
-          // ── 2. Tap / double-tap zones ─────────────────────
+          // ── 2. Tap / double-tap zones ──────────────────
           Row(
             children: [
               Expanded(
@@ -232,19 +216,19 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
             ],
           ),
 
-          // ── 3. Seek indicators ────────────────────────────
+          // ── 3. Seek indicators ─────────────────────────
           if (_showLeftSeek)
             Positioned(
-              left: 48, top: 0, bottom: 0,
+              left: 40, top: 0, bottom: 0,
               child: Center(child: _SeekIndicator(forward: false)),
             ),
           if (_showRightSeek)
             Positioned(
-              right: 48, top: 0, bottom: 0,
+              right: 40, top: 0, bottom: 0,
               child: Center(child: _SeekIndicator(forward: true)),
             ),
 
-          // ── 4. Controls overlay ───────────────────────────
+          // ── 4. Controls ────────────────────────────────
           if (_areControlsVisible)
             FadeTransition(
               opacity: _controlsOpacity,
@@ -254,63 +238,61 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
                   children: [
                     // Top scrim
                     Positioned(
-                      top: 0, left: 0, right: 0, height: 110,
+                      top: 0, left: 0, right: 0, height: 120,
                       child: Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Color(0xCC000000), Colors.transparent],
+                            colors: [Color(0xBB000000), Colors.transparent],
                           ),
                         ),
                       ),
                     ),
                     // Bottom scrim
                     Positioned(
-                      bottom: 0, left: 0, right: 0, height: 130,
+                      bottom: 0, left: 0, right: 0, height: 140,
                       child: Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
-                            colors: [Color(0xCC000000), Colors.transparent],
+                            colors: [Color(0xBB000000), Colors.transparent],
                           ),
                         ),
                       ),
                     ),
 
-                    // ── Top bar ────────────────────────────
+                    // ── Top bar ──────────────────────────
                     Positioned(
-                      top: 18, left: 16, right: 16,
+                      top: 20, left: 16, right: 16,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Close
                           LiquidGlassButton(
                             icon: CupertinoIcons.xmark,
-                            size: 38,
+                            size: 44,
                             onTap: () {
                               HapticFeedback.selectionClick();
                               Navigator.pop(context);
                             },
                           ),
-                          // AirPlay + Share
                           LiquidGlassPanel(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
-                            radius: 22,
+                            radius: 24,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 LiquidGlassButton(
                                   icon: CupertinoIcons.tv,
-                                  size: 34,
+                                  size: 40,
                                   onTap: () {},
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                                 LiquidGlassButton(
                                   icon: CupertinoIcons.share,
-                                  size: 34,
+                                  size: 40,
                                   onTap: () {},
                                 ),
                               ],
@@ -320,32 +302,32 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
                       ),
                     ),
 
-                    // ── Center controls ────────────────────
+                    // ── Center controls ──────────────────
                     Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           LiquidGlassButton(
                             icon: CupertinoIcons.gobackward_15,
-                            size: 58,
+                            size: 60,
                             onTap: () {
                               HapticFeedback.selectionClick();
                               _showControls();
                               _seekRelative(-15);
                             },
                           ),
-                          const SizedBox(width: 26),
+                          const SizedBox(width: 24),
                           LiquidGlassButton(
                             icon: isPlaying
                                 ? CupertinoIcons.pause_fill
                                 : CupertinoIcons.play_fill,
-                            size: 80,
+                            size: 82,
                             onTap: _togglePlay,
                           ),
-                          const SizedBox(width: 26),
+                          const SizedBox(width: 24),
                           LiquidGlassButton(
                             icon: CupertinoIcons.goforward_15,
-                            size: 58,
+                            size: 60,
                             onTap: () {
                               HapticFeedback.selectionClick();
                               _showControls();
@@ -356,37 +338,56 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
                       ),
                     ),
 
-                    // ── Bottom seek bar ────────────────────
+                    // ── Bottom seek bar ──────────────────
                     Positioned(
-                      bottom: 20, left: 16, right: 16,
+                      bottom: 24,
+                      left: 12,
+                      right: 12,
                       child: LiquidGlassPanel(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
-                        radius: 18,
+                            horizontal: 14, vertical: 6),
+                        radius: 20,
                         child: Row(
                           children: [
+                            // Elapsed time
                             Text(
-                              _printDur(currentPosition),
+                              _fmt(currentPosition),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
+                            // Slider — full width
                             Expanded(
-                              child: _IosSlider(
-                                value: progress,
-                                onChanged: (v) {
-                                  _showControls();
-                                  player.seek(totalDuration * v);
-                                },
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 3.0,
+                                  thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 7),
+                                  overlayShape:
+                                      const RoundSliderOverlayShape(
+                                          overlayRadius: 16),
+                                  activeTrackColor: Colors.white,
+                                  inactiveTrackColor: Colors.white30,
+                                  thumbColor: Colors.white,
+                                  overlayColor: Colors.white12,
+                                ),
+                                child: Slider(
+                                  value: progress,
+                                  onChanged: (v) {
+                                    _showControls();
+                                    player.seek(totalDuration * v);
+                                  },
+                                ),
                               ),
                             ),
+                            // Remaining time — positive (like original UI)
                             Text(
-                              "-${_printDur(totalDuration - currentPosition)}",
+                              _fmt(remaining),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -403,7 +404,7 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
     );
   }
 
-  String _printDur(Duration d) {
+  String _fmt(Duration d) {
     String two(int n) => n.toString().padLeft(2, "0");
     return "${d.inHours > 0 ? '${two(d.inHours)}:' : ''}${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}";
   }
