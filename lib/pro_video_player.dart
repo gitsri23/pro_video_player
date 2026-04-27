@@ -91,7 +91,7 @@ class _IosSlider extends StatelessWidget {
   }
 }
 
-// --- Seek Indicator (replaces PremiumGlass) ---
+// --- Seek Indicator ---
 class _SeekIndicator extends StatelessWidget {
   final bool forward;
   const _SeekIndicator({required this.forward});
@@ -108,15 +108,15 @@ class _SeekIndicator extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: forward
-            ? [
-                const Text("10s", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(width: 6),
-                const Icon(CupertinoIcons.forward_fill, color: Colors.white, size: 16),
+            ? const [
+                Text("10s", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                SizedBox(width: 6),
+                Icon(CupertinoIcons.forward_fill, color: Colors.white, size: 16),
               ]
-            : [
-                const Icon(CupertinoIcons.backward_fill, color: Colors.white, size: 16),
-                const SizedBox(width: 6),
-                const Text("10s", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+            : const [
+                Icon(CupertinoIcons.backward_fill, color: Colors.white, size: 16),
+                SizedBox(width: 6),
+                Text("10s", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
               ],
       ),
     );
@@ -132,17 +132,21 @@ class ProVideoPlayerScreen extends StatefulWidget {
   State<ProVideoPlayerScreen> createState() => _ProVideoPlayerScreenState();
 }
 
-class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
-    with SingleTickerProviderStateMixin {
+class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen> with SingleTickerProviderStateMixin {
   late final Player player;
   late final VideoController controller;
+  
   bool isPlaying = true;
   Duration currentPosition = Duration.zero;
   Duration totalDuration = Duration.zero;
+  
   bool _areControlsVisible = true;
   Timer? _hideControlsTimer;
   bool _showLeftSeek = false;
   bool _showRightSeek = false;
+
+  // Stream Subscriptions (Crucial for preventing memory leaks)
+  final List<StreamSubscription> _subscriptions = [];
 
   // For smooth control fade animation
   late AnimationController _controlsAnim;
@@ -151,29 +155,27 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations(
-        [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    _controlsAnim = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 220));
-    _controlsOpacity =
-        CurvedAnimation(parent: _controlsAnim, curve: Curves.easeInOut);
+    _controlsAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
+    _controlsOpacity = CurvedAnimation(parent: _controlsAnim, curve: Curves.easeInOut);
     _controlsAnim.forward();
 
     player = Player();
     controller = VideoController(player);
     player.open(Media(widget.videoPath));
 
-    player.stream.playing.listen((v) {
+    // Listen and store subscriptions to cancel later
+    _subscriptions.add(player.stream.playing.listen((v) {
       if (mounted) setState(() => isPlaying = v);
-    });
-    player.stream.position.listen((v) {
+    }));
+    _subscriptions.add(player.stream.position.listen((v) {
       if (mounted) setState(() => currentPosition = v);
-    });
-    player.stream.duration.listen((v) {
+    }));
+    _subscriptions.add(player.stream.duration.listen((v) {
       if (mounted) setState(() => totalDuration = v);
-    });
+    }));
 
     _startHideTimer();
   }
@@ -182,6 +184,12 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
   void dispose() {
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    
+    // Cancel all listeners to prevent setState errors after closing
+    for (var sub in _subscriptions) {
+      sub.cancel();
+    }
+    
     _controlsAnim.dispose();
     _hideControlsTimer?.cancel();
     player.dispose();
@@ -196,12 +204,14 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
   }
 
   void _hideControls() {
+    if (!mounted) return;
     _controlsAnim.reverse().then((_) {
       if (mounted) setState(() => _areControlsVisible = false);
     });
   }
 
   void _showControls() {
+    if (!mounted) return;
     setState(() => _areControlsVisible = true);
     _controlsAnim.forward();
     _startHideTimer();
@@ -223,9 +233,7 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
 
   void _seekRelative(int seconds) {
     final newPos = currentPosition + Duration(seconds: seconds);
-    final clamped = newPos.isNegative
-        ? Duration.zero
-        : (newPos > totalDuration ? totalDuration : newPos);
+    final clamped = newPos.isNegative ? Duration.zero : (newPos > totalDuration ? totalDuration : newPos);
     player.seek(clamped);
   }
 
@@ -234,22 +242,21 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
     _seekRelative(isForward ? 10 : -10);
     if (isForward) {
       setState(() => _showRightSeek = true);
-      Future.delayed(
-          const Duration(milliseconds: 600),
-          () => mounted ? setState(() => _showRightSeek = false) : null);
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) setState(() => _showRightSeek = false);
+      });
     } else {
       setState(() => _showLeftSeek = true);
-      Future.delayed(
-          const Duration(milliseconds: 600),
-          () => mounted ? setState(() => _showLeftSeek = false) : null);
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) setState(() => _showLeftSeek = false);
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final double progress = totalDuration.inMilliseconds > 0
-        ? (currentPosition.inMilliseconds / totalDuration.inMilliseconds)
-            .clamp(0.0, 1.0)
+        ? (currentPosition.inMilliseconds / totalDuration.inMilliseconds).clamp(0.0, 1.0)
         : 0.0;
 
     return Scaffold(
@@ -288,14 +295,14 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
 
           // 3. Seek indicators
           if (_showLeftSeek)
-            Positioned(
+            const Positioned(
               left: 48,
               top: 0,
               bottom: 0,
               child: Center(child: _SeekIndicator(forward: false)),
             ),
           if (_showRightSeek)
-            Positioned(
+            const Positioned(
               right: 48,
               top: 0,
               bottom: 0,
@@ -360,17 +367,14 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
                               Navigator.pop(context);
                             },
                           ),
-                          _IosPanel(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
+                          const _IosPanel(
+                            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             radius: 20,
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Icon(CupertinoIcons.tv,
-                                    color: Colors.white, size: 18),
+                                Icon(CupertinoIcons.tv, color: Colors.white, size: 18),
                                 SizedBox(width: 18),
-                                Icon(CupertinoIcons.share,
-                                    color: Colors.white, size: 18),
+                                Icon(CupertinoIcons.share, color: Colors.white, size: 18),
                               ],
                             ),
                           ),
@@ -394,9 +398,7 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
                           ),
                           const SizedBox(width: 28),
                           _IosCircleBtn(
-                            icon: isPlaying
-                                ? CupertinoIcons.pause_fill
-                                : CupertinoIcons.play_fill,
+                            icon: isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
                             size: 76,
                             bg: const Color(0xAA000000),
                             onTap: _togglePlay,
@@ -421,18 +423,18 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
                       left: 16,
                       right: 16,
                       child: _IosPanel(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         radius: 16,
                         child: Row(
                           children: [
                             Text(
                               _printDur(currentPosition),
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  fontFeatures: [FontFeature.tabularFigures()]),
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
                             ),
                             Expanded(
                               child: _IosSlider(
@@ -446,10 +448,11 @@ class _ProVideoPlayerScreenState extends State<ProVideoPlayerScreen>
                             Text(
                               "-${_printDur(totalDuration - currentPosition)}",
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  fontFeatures: [FontFeature.tabularFigures()]),
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
                             ),
                           ],
                         ),
